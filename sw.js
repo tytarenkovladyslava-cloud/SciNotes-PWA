@@ -1,5 +1,5 @@
-const STATIC_CACHE = 'scinotes-static-v1';
-const API_CACHE = 'scinotes-api-v1';
+const STATIC_CACHE = 'scinotes-static-v2';
+const API_CACHE = 'scinotes-api-v2';
 
 const APP_SHELL = [
     './',

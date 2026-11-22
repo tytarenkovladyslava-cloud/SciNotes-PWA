@@ -65,6 +65,14 @@ tabBtns.forEach((btn) => {
     });
 });
 
+// Допоміжна функція для очищення JATS XML-тегів, які повертає Crossref у полі abstract
+function cleanAbstract(rawAbstract) {
+    if (!rawAbstract) return '';
+    const temp = document.createElement('div');
+    temp.innerHTML = rawAbstract;
+    return (temp.textContent || temp.innerText || '').replace(/\s+/g, ' ').trim();
+}
+
 // 5. Пошук через Crossref REST API
 const searchForm = document.getElementById('searchForm');
 const searchInput = document.getElementById('searchInput');
@@ -85,7 +93,7 @@ async function performSearch(query) {
     searchStatus.textContent = 'Завантаження статей із Crossref API...';
     searchResults.innerHTML = '';
 
-    const url = `https://api.crossref.org/works?query=${encodeURIComponent(query)}&rows=10&select=DOI,title,author,published,container-title,URL`;
+    const url = `https://api.crossref.org/works?query=${encodeURIComponent(query)}&rows=10&select=DOI,title,author,published,container-title,URL,abstract`;
 
     try {
         const response = await fetch(url);
@@ -100,7 +108,8 @@ async function performSearch(query) {
                 : 'Автори не вказані',
             journal: item['container-title']?.[0] || 'Наукове видання',
             year: item.published?.['date-parts']?.[0]?.[0] || '—',
-            url: item.URL || `https://doi.org/${item.DOI}`
+            url: item.URL || `https://doi.org/${item.DOI}`,
+            abstract: cleanAbstract(item.abstract)
         }));
 
         searchStatus.textContent = navigator.onLine
@@ -127,6 +136,14 @@ function renderSearchResults() {
       </div>
       <div class="card-title">${article.title}</div>
       <div class="card-authors">${article.authors}</div>
+      ${
+            article.abstract
+                ? `<details class="abstract-box">
+               <summary>Показати анотацію (Abstract)</summary>
+               <p>${article.abstract}</p>
+             </details>`
+                : ''
+        }
       <div class="card-actions">
         <button class="btn ${isSaved ? 'btn-outline' : 'btn-primary'} save-btn" data-doi="${article.doi}">
           ${isSaved ? 'Редагувати конспект' : '+ Зберегти в IndexedDB'}
@@ -207,7 +224,8 @@ async function renderSavedArticles() {
         (item) =>
             item.title.toLowerCase().includes(filter) ||
             item.tag.toLowerCase().includes(filter) ||
-            (item.note && item.note.toLowerCase().includes(filter))
+            (item.note && item.note.toLowerCase().includes(filter)) ||
+            (item.abstract && item.abstract.toLowerCase().includes(filter))
     );
 
     savedResults.innerHTML = '';
@@ -227,6 +245,14 @@ async function renderSavedArticles() {
       </div>
       <div class="card-title">${article.title}</div>
       <div class="card-authors">${article.authors}</div>
+      ${
+            article.abstract
+                ? `<details class="abstract-box">
+               <summary>Збережена анотація (доступна Offline)</summary>
+               <p>${article.abstract}</p>
+             </details>`
+                : ''
+        }
       ${article.note ? `<div class="note-box"><strong>Конспект:</strong> ${article.note}</div>` : ''}
       <div class="card-actions">
         <button class="btn btn-outline edit-saved-btn" data-doi="${article.doi}">Редагувати</button>

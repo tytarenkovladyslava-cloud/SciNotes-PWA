@@ -311,3 +311,25 @@ input[type="text"]:focus, textarea:focus {
     gap: 0.5rem;
     margin-top: 0.5rem;
 }
+
+.abstract-box {
+    background: #f9fafb;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 0.55rem 0.8rem;
+    font-size: 0.88rem;
+    margin-top: 0.25rem;
+}
+
+.abstract-box summary {
+    cursor: pointer;
+    font-weight: 600;
+    color: var(--primary);
+    user-select: none;
+}
+
+.abstract-box p {
+    margin-top: 0.5rem;
+    color: var(--text);
+    line-height: 1.55;
+}
