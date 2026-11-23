@@ -4,81 +4,59 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="theme-color" content="#2a7b88" />
-    <title>SciNotes PWA — Наукові статті та конспекти</title>
+    <title>FlashCards PWA</title>
     <link rel="manifest" href="manifest.json" />
     <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-<header class="app-header">
-    <div class="container header-inner">
-        <div>
-            <h1>SciNotes <span class="badge-pwa">PWA</span></h1>
-            <p class="subtitle">Crossref API + Cache Storage + IndexedDB</p>
-        </div>
-        <div class="header-actions">
-            <button id="installBtn" class="btn btn-outline hidden">Встановити застосунок</button>
-            <span id="networkStatus" class="status-pill online">Online</span>
-        </div>
-    </div>
-</header>
-
 <main class="container">
-    <nav class="tabs">
-        <button class="tab-btn active" data-tab="search">Пошук (Crossref API)</button>
-        <button class="tab-btn" data-tab="saved">Моя добірка (<span id="savedCount">0</span>)</button>
-    </nav>
+    <header>
+        <div>
+            <h1>FlashCards <span class="tag">PWA</span></h1>
+            <p class="sub">IndexedDB + Dictionary API + Speech</p>
+        </div>
+        <span id="status" class="badge online">Online</span>
+    </header>
 
-    <!-- Вкладка пошуку -->
-    <section id="searchSection" class="tab-content active">
-        <form id="searchForm" class="search-bar">
-            <input
-                    type="text"
-                    id="searchInput"
-                    placeholder="Введіть тему або DOI (напр. Data Science, Information Theory)..."
-                    required
-            />
-            <button type="submit" class="btn btn-primary">Знайти</button>
-        </form>
+    <!-- Форма додавання нової картки -->
+    <form id="cardForm" class="card-form">
+        <input type="text" id="wordInput" placeholder="Англійське слово (напр. resilience)" required />
+        <input type="text" id="transInput" placeholder="Переклад або значення" required />
+        <button type="submit" id="addBtn">Додати картку</button>
+    </form>
 
-        <div class="quick-tags">
-            <span>Приклади:</span>
-            <button type="button" class="chip" data-query="Data Science">Data Science</button>
-            <button type="button" class="chip" data-query="Information Theory">Information Theory</button>
-            <button type="button" class="chip" data-query="Deep Learning">Deep Learning</button>
+    <!-- Інтерактивна 3D-картка -->
+    <section id="trainerSection" class="trainer hidden">
+        <div class="flashcard" id="flashcard">
+            <div class="flashcard-inner">
+                <div class="flashcard-front">
+                    <span class="hint">Натисніть на картку, щоб перевернути</span>
+                    <h2 id="frontWord">Word</h2>
+                    <p id="frontPhonetic" class="phonetic"></p>
+                    <button type="button" id="speakBtn" class="speak-btn">🔊 Озвучити</button>
+                </div>
+                <div class="flashcard-back">
+                    <h3 id="backTrans">Переклад</h3>
+                    <p id="backDef" class="definition"></p>
+                    <p id="backExample" class="example"></p>
+                </div>
+            </div>
         </div>
 
-        <div id="searchStatus" class="info-banner hidden"></div>
-        <div id="searchResults" class="cards-list"></div>
+        <div class="controls">
+            <button type="button" id="prevBtn" class="nav-btn">← Назад</button>
+            <span id="counter">1 / 1</span>
+            <button type="button" id="nextBtn" class="nav-btn">Далі →</button>
+        </div>
     </section>
 
-    <!-- Вкладка збереженого в IndexedDB -->
-    <section id="savedSection" class="tab-content">
-        <div class="filter-bar">
-            <input type="text" id="filterInput" placeholder="Фільтр за назвою, тегом або нотаткою..." />
-        </div>
-        <div id="savedResults" class="cards-list"></div>
+    <!-- Список усіх слів у IndexedDB -->
+    <section class="list-section">
+        <h3>Збережено в IndexedDB (<span id="totalCount">0</span>)</h3>
+        <ul id="cardsList"></ul>
     </section>
 </main>
 
-<!-- Модальне вікно для збереження / редагування нотатки -->
-<dialog id="noteModal" class="modal">
-    <form id="noteForm" method="dialog">
-        <h3 id="modalTitle">Зберегти статтю в IndexedDB</h3>
-        <p id="modalArticleName" class="modal-article-title"></p>
-
-        <label for="tagInput">Тег / Категорія</label>
-        <input type="text" id="tagInput" placeholder="Напр. ML, Диплом, Огляд" value="Дослідження" required />
-
-        <label for="noteInput">Конспект / Ключові тези</label>
-        <textarea id="noteInput" rows="4" placeholder="Запишіть головну ідею статті або висновки..."></textarea>
-
-        <div class="modal-actions">
-            <button type="button" id="cancelModalBtn" class="btn btn-outline">Скасувати</button>
-            <button type="submit" class="btn btn-primary">Зберегти в БД</button>
-        </div>
-    </form>
-</dialog>
-
-<script type="module" src="app.js"></script>
+<script src="app.js"></script>
 </body>
 </html>

@@ -1,24 +1,14 @@
-const STATIC_CACHE = 'scinotes-static-v2';
-const API_CACHE = 'scinotes-api-v2';
+const STATIC_CACHE = 'flashcards-static-v2';
+const API_CACHE = 'flashcards-api-v2';
+const FILES = ['./', './index.html', './style.css', './app.js', './manifest.json'];
 
-const APP_SHELL = [
-    './',
-    './index.html',
-    './style.css',
-    './app.js',
-    './db.js',
-    './manifest.json'
-];
-
-self.addEventListener('install', (event) => {
-    event.waitUntil(
-        caches.open(STATIC_CACHE).then((cache) => cache.addAll(APP_SHELL))
-    );
+self.addEventListener('install', (e) => {
+    e.waitUntil(caches.open(STATIC_CACHE).then((cache) => cache.addAll(FILES)));
     self.skipWaiting();
 });
 
-self.addEventListener('activate', (event) => {
-    event.waitUntil(
+self.addEventListener('activate', (e) => {
+    e.waitUntil(
         caches.keys().then((keys) =>
             Promise.all(
                 keys
@@ -30,27 +20,25 @@ self.addEventListener('activate', (event) => {
     self.clients.claim();
 });
 
-self.addEventListener('fetch', (event) => {
-    const url = new URL(event.request.url);
+self.addEventListener('fetch', (e) => {
+    const url = new URL(e.request.url);
 
-    // Стратегія Network First для Crossref API
-    if (url.hostname === 'api.crossref.org') {
-        event.respondWith(
-            fetch(event.request)
-                .then((networkResponse) => {
-                    const cloned = networkResponse.clone();
-                    caches.open(API_CACHE).then((cache) => cache.put(event.request, cloned));
-                    return networkResponse;
+    // Для Dictionary API: спочатку мережа, при офлайні — кеш
+    if (url.hostname === 'api.dictionaryapi.dev') {
+        e.respondWith(
+            fetch(e.request)
+                .then((res) => {
+                    const copy = res.clone();
+                    caches.open(API_CACHE).then((cache) => cache.put(e.request, copy));
+                    return res;
                 })
-                .catch(() => caches.match(event.request))
+                .catch(() => caches.match(e.request))
         );
         return;
     }
 
-    // Стратегія Cache First для власної статики
-    event.respondWith(
-        caches.match(event.request).then((cachedResponse) => {
-            return cachedResponse || fetch(event.request);
-        })
+    // Для локальних файлів: спочатку кеш, потім мережа
+    e.respondWith(
+        caches.match(e.request).then((cached) => cached || fetch(e.request))
     );
 });

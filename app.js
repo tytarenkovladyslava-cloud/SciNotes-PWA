@@ -1,289 +1,175 @@
-import { saveArticle, getAllSavedArticles, deleteSavedArticle } from './db.js';
-
 // 1. Реєстрація Service Worker
 if ('serviceWorker' in navigator) {
-    window.addEventListener('load', () => {
-        navigator.serviceWorker.register('./sw.js').catch((err) => {
-            console.error('SW registration failed:', err);
-        });
-    });
+    navigator.serviceWorker.register('./sw.js');
 }
 
-// 2. Кнопка встановлення PWA (Install Prompt)
-let deferredPrompt;
-const installBtn = document.getElementById('installBtn');
-
-window.addEventListener('beforeinstallprompt', (e) => {
-    e.preventDefault();
-    deferredPrompt = e;
-    installBtn.classList.remove('hidden');
-});
-
-installBtn.addEventListener('click', async () => {
-    if (!deferredPrompt) return;
-    deferredPrompt.prompt();
-    await deferredPrompt.userChoice;
-    deferredPrompt = null;
-    installBtn.classList.add('hidden');
-});
-
-// 3. Відстеження статусу мережі (Online / Offline)
-const networkStatus = document.getElementById('networkStatus');
-
-function updateNetworkStatus() {
-    if (navigator.onLine) {
-        networkStatus.textContent = 'Online';
-        networkStatus.className = 'status-pill online';
-    } else {
-        networkStatus.textContent = 'Offline (Cache + IndexedDB)';
-        networkStatus.className = 'status-pill offline';
-    }
+// 2. Індикатор Online / Offline
+const statusEl = document.getElementById('status');
+function updateStatus() {
+    statusEl.textContent = navigator.onLine ? 'Online' : 'Offline';
+    statusEl.className = navigator.onLine ? 'badge online' : 'badge offline';
 }
+window.addEventListener('online', updateStatus);
+window.addEventListener('offline', updateStatus);
+updateStatus();
 
-window.addEventListener('online', updateNetworkStatus);
-window.addEventListener('offline', updateNetworkStatus);
-updateNetworkStatus();
+// 3. Відкриття бази даних IndexedDB
+let db;
+let cards = [];
+let currentIndex = 0;
 
-// 4. Перемикання вкладок
-const tabBtns = document.querySelectorAll('.tab-btn');
-const searchSection = document.getElementById('searchSection');
-const savedSection = document.getElementById('savedSection');
+const request = indexedDB.open('FlashCardsDB', 1);
+request.onupgradeneeded = (e) => {
+    db = e.target.result;
+    db.createObjectStore('cards', { keyPath: 'id', autoIncrement: true });
+};
+request.onsuccess = (e) => {
+    db = e.target.result;
+    loadCards();
+};
 
-tabBtns.forEach((btn) => {
-    btn.addEventListener('click', () => {
-        tabBtns.forEach((b) => b.classList.remove('active'));
-        btn.classList.add('active');
-
-        if (btn.dataset.tab === 'search') {
-            searchSection.classList.add('active');
-            savedSection.classList.remove('active');
-        } else {
-            savedSection.classList.add('active');
-            searchSection.classList.remove('active');
-            renderSavedArticles();
-        }
-    });
-});
-
-// Допоміжна функція для очищення JATS XML-тегів, які повертає Crossref у полі abstract
-function cleanAbstract(rawAbstract) {
-    if (!rawAbstract) return '';
-    const temp = document.createElement('div');
-    temp.innerHTML = rawAbstract;
-    return (temp.textContent || temp.innerText || '').replace(/\s+/g, ' ').trim();
-}
-
-// 5. Пошук через Crossref REST API
-const searchForm = document.getElementById('searchForm');
-const searchInput = document.getElementById('searchInput');
-const searchResults = document.getElementById('searchResults');
-const searchStatus = document.getElementById('searchStatus');
-
-let currentSearchItems = [];
-let savedMap = new Map();
-
-async function refreshSavedCache() {
-    const saved = await getAllSavedArticles();
-    savedMap = new Map(saved.map((item) => [item.doi, item]));
-    document.getElementById('savedCount').textContent = saved.length;
-}
-
-async function performSearch(query) {
-    searchStatus.classList.remove('hidden');
-    searchStatus.textContent = 'Завантаження статей із Crossref API...';
-    searchResults.innerHTML = '';
-
-    const url = `https://api.crossref.org/works?query=${encodeURIComponent(query)}&rows=10&select=DOI,title,author,published,container-title,URL,abstract`;
-
+// 4. Запит до Dictionary API за першим визначенням і першим прикладом
+async function fetchWordDetails(word) {
     try {
-        const response = await fetch(url);
-        if (!response.ok) throw new Error('Network error');
+        const res = await fetch(`https://api.dictionaryapi.dev/api/v2/entries/en/${encodeURIComponent(word)}`);
+        if (!res.ok) return { phonetic: '', definition: '', example: '' };
+        const data = await res.json();
+        const entry = data[0];
 
-        const data = await response.json();
-        currentSearchItems = (data.message.items || []).map((item) => ({
-            doi: item.DOI,
-            title: item.title?.[0] || 'Без назви',
-            authors: item.author
-                ? item.author.slice(0, 4).map((a) => `${a.given || ''} ${a.family || ''}`.trim()).join(', ')
-                : 'Автори не вказані',
-            journal: item['container-title']?.[0] || 'Наукове видання',
-            year: item.published?.['date-parts']?.[0]?.[0] || '—',
-            url: item.URL || `https://doi.org/${item.DOI}`,
-            abstract: cleanAbstract(item.abstract)
-        }));
+        const phonetic = entry.phonetic || '';
+        let definition = '';
+        let example = '';
 
-        searchStatus.textContent = navigator.onLine
-            ? `Знайдено ${currentSearchItems.length} статей за запитом «${query}» (відповідь закешовано у SW).`
-            : `Офлайн-режим: показано збережену в Cache Storage відповідь для «${query}».`;
+        for (const meaning of entry.meanings || []) {
+            for (const def of meaning.definitions || []) {
+                if (!definition && def.definition) {
+                    definition = def.definition;
+                }
+                if (!example && def.example) {
+                    example = def.example;
+                }
+                if (definition && example) break;
+            }
+            if (definition && example) break;
+        }
 
-        renderSearchResults();
-    } catch (err) {
-        searchStatus.textContent =
-            'Немає з’єднання з мережею, а цей запит ще не був закешований. Перейдіть у вкладку «Моя добірка» для роботи з IndexedDB.';
+        return { phonetic, definition, example };
+    } catch {
+        return { phonetic: '', definition: '', example: '' };
     }
 }
 
-function renderSearchResults() {
-    searchResults.innerHTML = '';
-    currentSearchItems.forEach((article) => {
-        const isSaved = savedMap.has(article.doi);
-        const card = document.createElement('article');
-        card.className = 'card';
-        card.innerHTML = `
-      <div class="card-meta">
-        <span>${article.journal} • ${article.year}</span>
-        <span>DOI: ${article.doi}</span>
-      </div>
-      <div class="card-title">${article.title}</div>
-      <div class="card-authors">${article.authors}</div>
-      ${
-            article.abstract
-                ? `<details class="abstract-box">
-               <summary>Показати анотацію (Abstract)</summary>
-               <p>${article.abstract}</p>
-             </details>`
-                : ''
-        }
-      <div class="card-actions">
-        <button class="btn ${isSaved ? 'btn-outline' : 'btn-primary'} save-btn" data-doi="${article.doi}">
-          ${isSaved ? 'Редагувати конспект' : '+ Зберегти в IndexedDB'}
-        </button>
-        <a href="${article.url}" target="_blank" rel="noopener" class="btn btn-outline">Джерело ↗</a>
-      </div>
-    `;
-        searchResults.appendChild(card);
-    });
+// 5. Додавання картки в IndexedDB
+document.getElementById('cardForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const wordInput = document.getElementById('wordInput');
+    const transInput = document.getElementById('transInput');
+    const addBtn = document.getElementById('addBtn');
 
-    document.querySelectorAll('.save-btn').forEach((btn) => {
-        btn.addEventListener('click', () => {
-            const article = currentSearchItems.find((a) => a.doi === btn.dataset.doi);
-            openNoteModal(article);
-        });
-    });
+    const word = wordInput.value.trim();
+    const translation = transInput.value.trim();
+    if (!word || !translation) return;
+
+    addBtn.disabled = true;
+    addBtn.textContent = 'Завантаження...';
+
+    const { phonetic, definition, example } = await fetchWordDetails(word);
+
+    const tx = db.transaction('cards', 'readwrite');
+    tx.objectStore('cards').add({ word, translation, phonetic, definition, example });
+
+    tx.oncomplete = () => {
+        wordInput.value = '';
+        transInput.value = '';
+        addBtn.disabled = false;
+        addBtn.textContent = 'Додати картку';
+        currentIndex = cards.length;
+        loadCards();
+    };
+});
+
+// 6. Читання карток з IndexedDB та оновлення інтерфейсу
+function loadCards() {
+    const tx = db.transaction('cards', 'readonly');
+    tx.objectStore('cards').getAll().onsuccess = (e) => {
+        cards = e.target.result;
+        document.getElementById('totalCount').textContent = cards.length;
+        renderTrainer();
+        renderList();
+    };
 }
 
-searchForm.addEventListener('submit', (e) => {
-    e.preventDefault();
-    const q = searchInput.value.trim();
-    if (q) performSearch(q);
-});
-
-document.querySelectorAll('.chip').forEach((chip) => {
-    chip.addEventListener('click', () => {
-        searchInput.value = chip.dataset.query;
-        performSearch(chip.dataset.query);
-    });
-});
-
-// 6. Робота з модальним вікном та IndexedDB
-const noteModal = document.getElementById('noteModal');
-const noteForm = document.getElementById('noteForm');
-const modalArticleName = document.getElementById('modalArticleName');
-const tagInput = document.getElementById('tagInput');
-const noteInput = document.getElementById('noteInput');
-const cancelModalBtn = document.getElementById('cancelModalBtn');
-
-let activeArticle = null;
-
-function openNoteModal(article) {
-    activeArticle = article;
-    const existing = savedMap.get(article.doi);
-    modalArticleName.textContent = article.title;
-    tagInput.value = existing?.tag || 'Дослідження';
-    noteInput.value = existing?.note || '';
-    noteModal.showModal();
-}
-
-cancelModalBtn.addEventListener('click', () => noteModal.close());
-
-noteForm.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    if (!activeArticle) return;
-
-    await saveArticle({
-        ...activeArticle,
-        tag: tagInput.value.trim(),
-        note: noteInput.value.trim()
-    });
-
-    noteModal.close();
-    await refreshSavedCache();
-    renderSearchResults();
-    renderSavedArticles();
-});
-
-// 7. Рендер збережених статей із IndexedDB
-const savedResults = document.getElementById('savedResults');
-const filterInput = document.getElementById('filterInput');
-
-async function renderSavedArticles() {
-    const all = await getAllSavedArticles();
-    const filter = filterInput.value.trim().toLowerCase();
-
-    const filtered = all.filter(
-        (item) =>
-            item.title.toLowerCase().includes(filter) ||
-            item.tag.toLowerCase().includes(filter) ||
-            (item.note && item.note.toLowerCase().includes(filter)) ||
-            (item.abstract && item.abstract.toLowerCase().includes(filter))
-    );
-
-    savedResults.innerHTML = '';
-
-    if (filtered.length === 0) {
-        savedResults.innerHTML = '<div class="info-banner">У базі IndexedDB поки немає збережених статей за цим фільтром.</div>';
+function renderTrainer() {
+    const trainer = document.getElementById('trainerSection');
+    if (cards.length === 0) {
+        trainer.classList.add('hidden');
         return;
     }
+    trainer.classList.remove('hidden');
+    if (currentIndex >= cards.length) currentIndex = cards.length - 1;
 
-    filtered.forEach((article) => {
-        const card = document.createElement('article');
-        card.className = 'card';
-        card.innerHTML = `
-      <div class="card-meta">
-        <span class="tag-badge">#${article.tag}</span>
-        <span>${article.journal} • ${article.year}</span>
-      </div>
-      <div class="card-title">${article.title}</div>
-      <div class="card-authors">${article.authors}</div>
-      ${
-            article.abstract
-                ? `<details class="abstract-box">
-               <summary>Збережена анотація (доступна Offline)</summary>
-               <p>${article.abstract}</p>
-             </details>`
-                : ''
-        }
-      ${article.note ? `<div class="note-box"><strong>Конспект:</strong> ${article.note}</div>` : ''}
-      <div class="card-actions">
-        <button class="btn btn-outline edit-saved-btn" data-doi="${article.doi}">Редагувати</button>
-        <button class="btn btn-danger delete-saved-btn" data-doi="${article.doi}">Видалити з БД</button>
-        <a href="${article.url}" target="_blank" rel="noopener" class="btn btn-outline">Джерело ↗</a>
+    const card = cards[currentIndex];
+    document.getElementById('flashcard').classList.remove('flipped');
+    document.getElementById('frontWord').textContent = card.word;
+    document.getElementById('frontPhonetic').textContent = card.phonetic || '';
+    document.getElementById('backTrans').textContent = card.translation;
+
+    const defEl = document.getElementById('backDef');
+    defEl.textContent = card.definition || '';
+    defEl.classList.toggle('hidden', !card.definition);
+
+    const exEl = document.getElementById('backExample');
+    exEl.textContent = card.example ? `"${card.example}"` : '';
+    exEl.classList.toggle('hidden', !card.example);
+
+    document.getElementById('counter').textContent = `${currentIndex + 1} / ${cards.length}`;
+}
+
+function renderList() {
+    const list = document.getElementById('cardsList');
+    list.innerHTML = '';
+    cards.forEach((c) => {
+        const li = document.createElement('li');
+        li.innerHTML = `
+      <div class="item-info">
+        <strong>${c.word}</strong> — ${c.translation}
+        ${c.definition ? `<small>${c.definition}</small>` : ''}
+        ${c.example ? `<small><em>"${c.example}"</em></small>` : ''}
       </div>
     `;
-        savedResults.appendChild(card);
-    });
-
-    document.querySelectorAll('.edit-saved-btn').forEach((btn) => {
-        btn.addEventListener('click', () => {
-            const article = savedMap.get(btn.dataset.doi);
-            if (article) openNoteModal(article);
-        });
-    });
-
-    document.querySelectorAll('.delete-saved-btn').forEach((btn) => {
-        btn.addEventListener('click', async () => {
-            await deleteSavedArticle(btn.dataset.doi);
-            await refreshSavedCache();
-            renderSavedArticles();
-            renderSearchResults();
-        });
+        const delBtn = document.createElement('button');
+        delBtn.textContent = '✕';
+        delBtn.className = 'del-btn';
+        delBtn.onclick = () => {
+            const tx = db.transaction('cards', 'readwrite');
+            tx.objectStore('cards').delete(c.id);
+            tx.oncomplete = loadCards;
+        };
+        li.appendChild(delBtn);
+        list.appendChild(li);
     });
 }
 
-filterInput.addEventListener('input', renderSavedArticles);
+// 7. Перевертання картки, озвучка та навігація
+document.getElementById('flashcard').addEventListener('click', (e) => {
+    if (e.target.id !== 'speakBtn') {
+        document.getElementById('flashcard').classList.toggle('flipped');
+    }
+});
 
-// Ініціалізація при старті
-(async () => {
-    await refreshSavedCache();
-    performSearch('Data Science');
-})();
+document.getElementById('speakBtn').addEventListener('click', (e) => {
+    e.stopPropagation();
+    const utterance = new SpeechSynthesisUtterance(cards[currentIndex].word);
+    utterance.lang = 'en-US';
+    speechSynthesis.speak(utterance);
+});
+
+document.getElementById('prevBtn').addEventListener('click', () => {
+    currentIndex = (currentIndex - 1 + cards.length) % cards.length;
+    renderTrainer();
+});
+
+document.getElementById('nextBtn').addEventListener('click', () => {
+    currentIndex = (currentIndex + 1) % cards.length;
+    renderTrainer();
+});
