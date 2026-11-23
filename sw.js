@@ -1,5 +1,5 @@
-const STATIC_CACHE = 'flashcards-static-v4';
-const API_CACHE = 'flashcards-api-v4';
+const STATIC_CACHE = 'flashcards-static-v5';
+const API_CACHE = 'flashcards-api-v5';
 const FILES = ['./', './index.html', './style.css', './app.js', './manifest.json', './icon.png'];
 
 self.addEventListener('install', (e) => {

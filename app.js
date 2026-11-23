@@ -165,3 +165,9 @@ document.getElementById('nextBtn').addEventListener('click', () => {
     currentIndex = (currentIndex + 1) % cards.length;
     renderTrainer();
 });
+
+document.getElementById('shuffleBtn').addEventListener('click', () => {
+    cards.sort(() => Math.random() - 0.5);
+    currentIndex = 0;
+    renderTrainer();
+});
