@@ -37,7 +37,6 @@ self.addEventListener('fetch', (e) => {
         return;
     }
 
-    // Для локальних файлів: спочатку кеш, потім мережа
     e.respondWith(
         caches.match(e.request).then((cached) => cached || fetch(e.request))
     );

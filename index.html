@@ -4,28 +4,26 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="theme-color" content="#2a7b88" />
-    <title>FlashCards PWA</title>
+    <title>MyFlashCards PWA</title>
     <link rel="manifest" href="manifest.json" />
+    <link rel="apple-touch-icon" href="icon.png" />
     <link rel="stylesheet" href="style.css" />
 </head>
 <body>
 <main class="container">
     <header>
         <div>
-            <h1>FlashCards <span class="tag">PWA</span></h1>
-            <p class="sub">IndexedDB + Dictionary API + Speech</p>
+            <h1>MyFlashCards</h1>
         </div>
         <span id="status" class="badge online">Online</span>
     </header>
 
-    <!-- Форма додавання нової картки -->
     <form id="cardForm" class="card-form">
         <input type="text" id="wordInput" placeholder="Англійське слово (напр. resilience)" required />
         <input type="text" id="transInput" placeholder="Переклад або значення" required />
         <button type="submit" id="addBtn">Додати картку</button>
     </form>
 
-    <!-- Інтерактивна 3D-картка -->
     <section id="trainerSection" class="trainer hidden">
         <div class="flashcard" id="flashcard">
             <div class="flashcard-inner">
@@ -33,7 +31,7 @@
                     <span class="hint">Натисніть на картку, щоб перевернути</span>
                     <h2 id="frontWord">Word</h2>
                     <p id="frontPhonetic" class="phonetic"></p>
-                    <button type="button" id="speakBtn" class="speak-btn">🔊 Озвучити</button>
+                    <button type="button" id="speakBtn" class="speak-btn">Озвучити</button>
                 </div>
                 <div class="flashcard-back">
                     <h3 id="backTrans">Переклад</h3>
@@ -50,9 +48,8 @@
         </div>
     </section>
 
-    <!-- Список усіх слів у IndexedDB -->
     <section class="list-section">
-        <h3>Збережено в IndexedDB (<span id="totalCount">0</span>)</h3>
+        <h3>Збережені слова</h3>
         <ul id="cardsList"></ul>
     </section>
 </main>

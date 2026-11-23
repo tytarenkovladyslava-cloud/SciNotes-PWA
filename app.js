@@ -1,9 +1,7 @@
-// 1. Реєстрація Service Worker
 if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('./sw.js');
 }
 
-// 2. Індикатор Online / Offline
 const statusEl = document.getElementById('status');
 function updateStatus() {
     statusEl.textContent = navigator.onLine ? 'Online' : 'Offline';
@@ -13,7 +11,6 @@ window.addEventListener('online', updateStatus);
 window.addEventListener('offline', updateStatus);
 updateStatus();
 
-// 3. Відкриття бази даних IndexedDB
 let db;
 let cards = [];
 let currentIndex = 0;
@@ -28,7 +25,6 @@ request.onsuccess = (e) => {
     loadCards();
 };
 
-// 4. Запит до Dictionary API за першим визначенням і першим прикладом
 async function fetchWordDetails(word) {
     try {
         const res = await fetch(`https://api.dictionaryapi.dev/api/v2/entries/en/${encodeURIComponent(word)}`);
@@ -59,7 +55,6 @@ async function fetchWordDetails(word) {
     }
 }
 
-// 5. Додавання картки в IndexedDB
 document.getElementById('cardForm').addEventListener('submit', async (e) => {
     e.preventDefault();
     const wordInput = document.getElementById('wordInput');
@@ -88,7 +83,6 @@ document.getElementById('cardForm').addEventListener('submit', async (e) => {
     };
 });
 
-// 6. Читання карток з IndexedDB та оновлення інтерфейсу
 function loadCards() {
     const tx = db.transaction('cards', 'readonly');
     tx.objectStore('cards').getAll().onsuccess = (e) => {
@@ -150,7 +144,6 @@ function renderList() {
     });
 }
 
-// 7. Перевертання картки, озвучка та навігація
 document.getElementById('flashcard').addEventListener('click', (e) => {
     if (e.target.id !== 'speakBtn') {
         document.getElementById('flashcard').classList.toggle('flipped');
