@@ -29,19 +29,6 @@ h1 {
     font-size: 1.4rem;
 }
 
-.tag {
-    background: #e0f2fe;
-    color: #0369a1;
-    font-size: 0.75rem;
-    padding: 0.15rem 0.5rem;
-    border-radius: 6px;
-}
-
-.sub {
-    font-size: 0.8rem;
-    color: #64748b;
-}
-
 .badge {
     font-size: 0.8rem;
     font-weight: bold;

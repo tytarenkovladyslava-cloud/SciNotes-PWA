@@ -87,7 +87,6 @@ function loadCards() {
     const tx = db.transaction('cards', 'readonly');
     tx.objectStore('cards').getAll().onsuccess = (e) => {
         cards = e.target.result;
-        document.getElementById('totalCount').textContent = cards.length;
         renderTrainer();
         renderList();
     };
@@ -125,12 +124,12 @@ function renderList() {
     cards.forEach((c) => {
         const li = document.createElement('li');
         li.innerHTML = `
-      <div class="item-info">
-        <strong>${c.word}</strong> — ${c.translation}
-        ${c.definition ? `<small>${c.definition}</small>` : ''}
-        ${c.example ? `<small><em>"${c.example}"</em></small>` : ''}
-      </div>
-    `;
+            <div class="item-info">
+                <strong>${c.word}</strong> — ${c.translation}
+                ${c.definition ? `<small>${c.definition}</small>` : ''}
+                ${c.example ? `<small><em>"${c.example}"</em></small>` : ''}
+            </div>
+        `;
         const delBtn = document.createElement('button');
         delBtn.textContent = '✕';
         delBtn.className = 'del-btn';

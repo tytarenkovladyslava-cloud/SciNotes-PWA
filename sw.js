@@ -1,6 +1,6 @@
-const STATIC_CACHE = 'flashcards-static-v2';
-const API_CACHE = 'flashcards-api-v2';
-const FILES = ['./', './index.html', './style.css', './app.js', './manifest.json'];
+const STATIC_CACHE = 'flashcards-static-v4';
+const API_CACHE = 'flashcards-api-v4';
+const FILES = ['./', './index.html', './style.css', './app.js', './manifest.json', './icon.png'];
 
 self.addEventListener('install', (e) => {
     e.waitUntil(caches.open(STATIC_CACHE).then((cache) => cache.addAll(FILES)));
@@ -37,6 +37,7 @@ self.addEventListener('fetch', (e) => {
         return;
     }
 
+    // Для локальних файлів: спочатку кеш, потім мережа
     e.respondWith(
         caches.match(e.request).then((cached) => cached || fetch(e.request))
     );
